@@ -46,9 +46,9 @@ export function createCaptionPanel(imageMesh, title, caption, aspect) {
   const texture = createCaptionTexture(title, caption);
   const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
 
-  // パネルサイズを幅0.4、高さ0.2に固定
-  const panelWidth = 0.4;
-  const panelHeight = 0.2;
+  // パネルサイズを幅0.8、高さ0.4に固定
+  const panelWidth = 0.8;
+  const panelHeight = 0.4;
   const geometry = new THREE.PlaneGeometry(panelWidth, panelHeight);
   const panel = new THREE.Mesh(geometry, material);
 
@@ -56,7 +56,7 @@ export function createCaptionPanel(imageMesh, title, caption, aspect) {
   const halfW = imageMesh.scale.x / 2;
   const halfH = imageMesh.scale.y / 2;
 
-  // 配置ロジック：画像の外側に配置
+  // 配置ロジック：画像の外側に配置（中心座標を計算）
   if (aspect > 1) {
     // 横長作品 → 下に配置、右端を画像右端に揃える
     panel.position.set(
