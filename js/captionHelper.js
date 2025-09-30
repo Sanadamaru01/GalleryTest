@@ -45,26 +45,30 @@ function wrapText(ctx, text, x, y, maxWidth, lineHeight) {
 export function createCaptionPanel(imageMesh, title, caption, aspect) {
   const texture = createCaptionTexture(title, caption);
   const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
-  const geometry = new THREE.PlaneGeometry(1.5, 0.75);
+
+  // パネルサイズを幅0.4、高さ0.2に固定
+  const panelWidth = 0.4;
+  const panelHeight = 0.2;
+  const geometry = new THREE.PlaneGeometry(panelWidth, panelHeight);
   const panel = new THREE.Mesh(geometry, material);
 
   // 画像サイズ取得
   const halfW = imageMesh.scale.x / 2;
   const halfH = imageMesh.scale.y / 2;
 
-  // 配置ロジック修正：画像の外側に出す
+  // 配置ロジック：画像の外側に配置
   if (aspect > 1) {
-    // 横長作品 → 下に配置（右端を画像右端に揃える）
+    // 横長作品 → 下に配置、右端を画像右端に揃える
     panel.position.set(
-      halfW - geometry.parameters.width / 2,
-      -halfH - geometry.parameters.height / 2,
+      halfW - panelWidth / 2,
+      -halfH - panelHeight / 2,
       0.01
     );
   } else {
-    // 縦長作品 → 右に配置（下端を画像下端に揃える）
+    // 縦長作品 → 右に配置、下端を画像下端に揃える
     panel.position.set(
-      halfW + geometry.parameters.width / 2,
-      -halfH + geometry.parameters.height / 2,
+      halfW + panelWidth / 2,
+      -halfH + panelHeight / 2,
       0.01
     );
   }
