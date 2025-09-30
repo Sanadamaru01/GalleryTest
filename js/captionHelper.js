@@ -3,8 +3,8 @@ import * as THREE from 'three';
 // テキストを描画した CanvasTexture を返す
 function createCaptionTexture(title, caption) {
   const canvas = document.createElement('canvas');
-  canvas.width = 512;
-  canvas.height = 256;
+  canvas.width = 120;
+  canvas.height = 100;
   const ctx = canvas.getContext('2d');
 
   // 背景
@@ -13,11 +13,11 @@ function createCaptionTexture(title, caption) {
 
   // タイトル
   ctx.fillStyle = 'white';
-  ctx.font = '28px sans-serif';
+  ctx.font = '20px sans-serif';
   ctx.fillText(title, 20, 50);
 
   // 解説（改行対応）
-  ctx.font = '20px sans-serif';
+  ctx.font = '10px sans-serif';
   wrapText(ctx, caption, 20, 100, 460, 28);
 
   return new THREE.CanvasTexture(canvas);
