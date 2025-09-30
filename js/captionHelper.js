@@ -56,4 +56,20 @@ export function createCaptionPanel(imageMesh, title, caption, aspect) {
   if (aspect > 1) {
     // 横長作品 → 下に配置（右端を合わせる）
     panel.position.set(
-      halfW - g
+      halfW - geometry.parameters.width / 2,
+      -halfH - geometry.parameters.height / 2,
+      0.01
+    );
+  } else {
+    // 縦長作品 → 右に配置（下端を合わせる）
+    panel.position.set(
+      halfW + geometry.parameters.width / 2,
+      -halfH + geometry.parameters.height / 2,
+      0.01
+    );
+  }
+
+  imageMesh.add(panel);
+  panel.visible = false; // 初期は非表示
+  return panel;
+}
