@@ -1,1 +1,1 @@
-# GalleryTest
+# TestGallery
