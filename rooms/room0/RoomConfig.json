@@ -13,13 +13,45 @@
     "Door": "../shared/textures/Door.webp"
   },
   "images": [
-    "photo1.webp",
-    "photo2.webp",
-    "photo4.webp",
-    "photo3.webp",
-    "photo5.webp",
-    "photo6.webp",
-    "photo7.webp",
-    "photo8.webp"
+    {
+      "file": "photo1.webp",
+      "title": "夕暮れの街角",
+      "caption": "都会の片隅で見つけた一瞬の光景。"
+    },
+    {
+      "file": "photo2.webp",
+      "title": "森の中で",
+      "caption": "木漏れ日が差し込む静かな森。"
+    },
+    {
+      "file": "photo4.webp",
+      "title": "古い建物",
+      "caption": "歴史を感じさせるレンガ造りの壁。"
+    },
+    {
+      "file": "photo3.webp",
+      "title": "静かな海",
+      "caption": "穏やかな波が広がる青い水平線。"
+    },
+    {
+      "file": "photo5.webp",
+      "title": "夜の街",
+      "caption": "光と影が織りなす幻想的な街の風景。"
+    },
+    {
+      "file": "photo6.webp",
+      "title": "雪山",
+      "caption": "真っ白な雪に覆われた山脈。"
+    },
+    {
+      "file": "photo7.webp",
+      "title": "花畑",
+      "caption": "色とりどりの花が広がる春の景色。"
+    },
+    {
+      "file": "photo8.webp",
+      "title": "星空",
+      "caption": "満天の星が広がる夜空。"
+    }
   ]
 }
