@@ -3,8 +3,8 @@ import * as THREE from 'three';
 // テキストを描画した CanvasTexture を返す
 function createCaptionTexture(title, caption) {
   const canvas = document.createElement('canvas');
-  canvas.width = 256;
-  canvas.height = 128;
+  canvas.width = 256;  // 調整
+  canvas.height = 128; // 調整
   const ctx = canvas.getContext('2d');
 
   // 背景
@@ -18,7 +18,7 @@ function createCaptionTexture(title, caption) {
 
   // 解説（改行対応）
   ctx.font = '12px sans-serif';
-  wrapText(ctx, caption, 10, 48, canvas.width - 20, 18);
+  wrapText(ctx, caption, 10, 48, canvas.width - 20, 20);
 
   return new THREE.CanvasTexture(canvas);
 }
@@ -46,34 +46,31 @@ export function createCaptionPanel(imageMesh, title, caption, aspect) {
   const texture = createCaptionTexture(title, caption);
   const material = new THREE.MeshBasicMaterial({ map: texture, transparent: true });
 
-  // パネルサイズを幅0.8、高さ0.4に固定
-  const panelWidth = 0.8;
-  const panelHeight = 0.4;
-  const geometry = new THREE.PlaneGeometry(panelWidth, panelHeight);
+  // パネルサイズ固定
+  const PANEL_WIDTH = 0.8;
+  const PANEL_HEIGHT = 0.4;
+  const geometry = new THREE.PlaneGeometry(PANEL_WIDTH, PANEL_HEIGHT);
   const panel = new THREE.Mesh(geometry, material);
 
-  // 画像サイズ取得
-  const halfW = imageMesh.scale.x / 2;
-  const halfH = imageMesh.scale.y / 2;
+  // 配置ロジック（画像の外に出す）
+  const imgWidth = imageMesh.geometry.parameters.width;
+  const imgHeight = imageMesh.geometry.parameters.height;
 
-  // 配置ロジック：画像の外側に配置（中心座標を計算）
   if (aspect > 1) {
-    // 横長作品 → 下に配置、右端を画像右端に揃える
-    panel.position.set(
-      halfW - panelWidth / 2,
-      -halfH - panelHeight / 2,
-      0.01
-    );
+    // 横長作品 → 下に配置、右端揃え
+    const offsetX = imgWidth / 2 - PANEL_WIDTH / 2;
+    const offsetY = -imgHeight / 2 - PANEL_HEIGHT / 2;
+    panel.position.set(offsetX, offsetY, 0.01);
   } else {
-    // 縦長作品 → 右に配置、下端を画像下端に揃える
-    panel.position.set(
-      halfW + panelWidth / 2,
-      -halfH + panelHeight / 2,
-      0.01
-    );
+    // 縦長作品 → 右に配置、下端揃え
+    const offsetX = imgWidth / 2 + PANEL_WIDTH / 2;
+    const offsetY = -imgHeight / 2 + PANEL_HEIGHT / 2;
+    panel.position.set(offsetX, offsetY, 0.01);
   }
 
+  // 画像のローカル座標に追加
   imageMesh.add(panel);
   panel.visible = false; // 初期は非表示
+
   return panel;
 }
