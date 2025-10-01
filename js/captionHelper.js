@@ -3,22 +3,22 @@ import * as THREE from 'three';
 // テキストを描画した CanvasTexture を返す
 function createCaptionTexture(title, caption) {
   const canvas = document.createElement('canvas');
-  canvas.width = 256;  // 調整
-  canvas.height = 128; // 調整
+  canvas.width = 256;
+  canvas.height = 128;
   const ctx = canvas.getContext('2d');
 
   // 背景
   ctx.fillStyle = 'black';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // タイトル
+  // タイトル（少し大きめ）
   ctx.fillStyle = 'white';
-  ctx.font = '16px sans-serif';
-  ctx.fillText(title, 10, 24);
+  ctx.font = '20px sans-serif';
+  ctx.fillText(title, 10, 28);
 
-  // 解説（改行対応）
-  ctx.font = '12px sans-serif';
-  wrapText(ctx, caption, 10, 48, canvas.width - 20, 20);
+  // 解説（改行対応、少し大きめ）
+  ctx.font = '14px sans-serif';
+  wrapText(ctx, caption, 10, 52, canvas.width - 20, 22);
 
   return new THREE.CanvasTexture(canvas);
 }
@@ -52,18 +52,21 @@ export function createCaptionPanel(imageMesh, title, caption, aspect) {
   const geometry = new THREE.PlaneGeometry(PANEL_WIDTH, PANEL_HEIGHT);
   const panel = new THREE.Mesh(geometry, material);
 
-  // 配置ロジック（画像の外に出す）
+  // 余白調整用マージン
+  const margin = 0.05;
+
+  // 画像サイズを取得
   const imgWidth = imageMesh.geometry.parameters.width;
   const imgHeight = imageMesh.geometry.parameters.height;
 
   if (aspect > 1) {
     // 横長作品 → 下に配置、右端揃え
     const offsetX = imgWidth / 2 - PANEL_WIDTH / 2;
-    const offsetY = -imgHeight / 2 - PANEL_HEIGHT / 2;
+    const offsetY = -imgHeight / 2 - PANEL_HEIGHT / 2 - margin;
     panel.position.set(offsetX, offsetY, 0.01);
   } else {
     // 縦長作品 → 右に配置、下端揃え
-    const offsetX = imgWidth / 2 + PANEL_WIDTH / 2;
+    const offsetX = imgWidth / 2 + PANEL_WIDTH / 2 + margin;
     const offsetY = -imgHeight / 2 + PANEL_HEIGHT / 2;
     panel.position.set(offsetX, offsetY, 0.01);
   }
