@@ -13,8 +13,6 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
   controls.rotateSpeed = -0.1;
   controls.minPolarAngle = Math.PI / 2;
   controls.maxPolarAngle = Math.PI / 2;
-
-  // ★初期ターゲットは固定（自分中心の回転を保つため動かさない）
   controls.target.set(0, controlsTargetY, 0);
 
   const raycaster = new THREE.Raycaster();
@@ -26,10 +24,15 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
   let isClick = false;
   let clickStartTime = 0;
 
+  // パネルの前後移動のための記録
   let lastPanel = null;
   let lastCameraPos = new THREE.Vector3();
   let lastCameraTarget = new THREE.Vector3();
+
+  // カメラが移動中に向く方向（通常は移動前に見ていた方向）
   let currentLookAt = new THREE.Vector3();
+
+  // 後退時に移動完了後に変更すべき注視点
   let pendingTarget = null;
 
   function moveCameraTo(lookAtPos, offsetDirection = null, distance = 0.5, isReturn = false) {
@@ -45,7 +48,8 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
       currentLookAt.copy(controls.target);
       pendingTarget = lookAtPos.clone();
     } else {
-      // 前進：ターゲットは動かさない、自分の位置を中心に回転
+      // 前進：先に注視点を設定し、その方向を向いて移動
+      controls.target.copy(lookAtPos);
       currentLookAt.copy(lookAtPos);
       pendingTarget = null;
     }
@@ -71,21 +75,21 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
 
+    // パネルクリック処理
     const panels = scene.userData.clickablePanels || [];
     const hits = raycaster.intersectObjects(panels);
-
     if (hits.length > 0) {
       const panel = hits[0].object;
 
       if (lastPanel === panel) {
-        // 同じパネル再クリック → 後退
+        // 同じパネルを再クリック → 後退
         moveCameraTo(lastCameraTarget, null, 0, true);
         moveTo.copy(lastCameraPos);
         lastPanel = null;
         return;
       }
 
-      // 新しいパネルクリック → 前進
+      // 新しいパネルをクリック → 前進
       lastPanel = panel;
       lastCameraPos.copy(camera.position);
       lastCameraTarget.copy(controls.target);
@@ -102,11 +106,11 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
       // =============================================
       const panelHeight = panel.userData.size?.height || 1;  // パネル高さ
       const fixedLongSide = 3;                               // 基準高さ
-      const baseDistance = -1.0;                             // 元の距離
-      const safetyMargin = -0.9;                             // マージン
+      const baseDistance = -1.0;                             // 基準距離
+      const safetyMargin = -0.9;                             // マージン（例: -0.9）
       const distance = baseDistance * (panelHeight / fixedLongSide) + safetyMargin;
 
-      console.log(distance, panelHeight);
+      console.log('[panel click] distance:', distance, 'panelHeight:', panelHeight);
       // =============================================
 
       moveCameraTo(panelCenter, panelNormal, distance); // 前進
@@ -133,27 +137,29 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  function animateCamera() {
-    if (moveStart !== null) {
-      const now = performance.now() / 1000;
-      const elapsed = now - moveStart;
-      const t = Math.min(elapsed / moveDuration, 1);
+  return {
+    controls,
+    animateCamera: () => {
+      if (moveStart !== null) {
+        const now = performance.now() / 1000;
+        const elapsed = now - moveStart;
+        const t = Math.min(elapsed / moveDuration, 1);
 
-      camera.position.lerpVectors(moveFrom, moveTo, t);
-      camera.lookAt(currentLookAt);
+        camera.position.lerpVectors(moveFrom, moveTo, t);
+        camera.lookAt(currentLookAt); // 移動中は元の方向を見る
 
-      if (t >= 1) {
-        moveStart = null;
-        if (pendingTarget) {
-          // ターゲットは動かさない → 自分中心の回転維持
-          camera.lookAt(pendingTarget);
-          pendingTarget = null;
-        } else {
-          camera.lookAt(currentLookAt);
+        if (t >= 1) {
+          moveStart = null;
+
+          if (pendingTarget) {
+            controls.target.copy(pendingTarget);
+            camera.lookAt(pendingTarget);
+            pendingTarget = null;
+          } else {
+            camera.lookAt(controls.target);
+          }
         }
       }
-    }
-  }
-
-  return { controls, animateCamera };
+    },
+  };
 }
