@@ -24,14 +24,11 @@ export function createCameraMover(camera, controls) {
     moveTo.copy(camPos);
 
     if (isReturn) {
-      // 後退時は今の注視点を保持して、到着後に切り替える
       currentLookAt.copy(controls.target);
       pendingTarget = lookAtPos.clone();
     } else {
-      // 前進時は注視点を先に更新
-      controls.target.copy(lookAtPos);
       currentLookAt.copy(lookAtPos);
-      pendingTarget = null;
+      pendingTarget = lookAtPos.clone(); // 修正: 前進時も到着後に controls.target を更新
     }
 
     moveStart = performance.now() / 1000;
