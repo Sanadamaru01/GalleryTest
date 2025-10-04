@@ -13,6 +13,8 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
   controls.rotateSpeed = -0.1;
   controls.minPolarAngle = Math.PI / 2;
   controls.maxPolarAngle = Math.PI / 2;
+
+  // ★初期ターゲットは固定（自分中心の回転を保つため動かさない）
   controls.target.set(0, controlsTargetY, 0);
 
   const raycaster = new THREE.Raycaster();
@@ -39,10 +41,11 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
     newCamPos.y = camera.position.y;
 
     if (isReturn) {
+      // 後退：今の向きを保って戻り、到着後に注視点変更
       currentLookAt.copy(controls.target);
       pendingTarget = lookAtPos.clone();
     } else {
-      controls.target.copy(lookAtPos);
+      // 前進：ターゲットは動かさない、自分の位置を中心に回転
       currentLookAt.copy(lookAtPos);
       pendingTarget = null;
     }
@@ -99,11 +102,11 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
       // =============================================
       const panelHeight = panel.userData.size?.height || 1;  // パネル高さ
       const fixedLongSide = 3;                               // 基準高さ
-      const baseDistance = -1.0;                              // 元の距離
-      const safetyMargin = -0.9;                              // マージン
+      const baseDistance = -1.0;                             // 元の距離
+      const safetyMargin = -0.9;                             // マージン
       const distance = baseDistance * (panelHeight / fixedLongSide) + safetyMargin;
 
-      console.log(distance, panelHeight)
+      console.log(distance, panelHeight);
       // =============================================
 
       moveCameraTo(panelCenter, panelNormal, distance); // 前進
@@ -142,11 +145,11 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
       if (t >= 1) {
         moveStart = null;
         if (pendingTarget) {
-          controls.target.copy(pendingTarget);
+          // ターゲットは動かさない → 自分中心の回転維持
           camera.lookAt(pendingTarget);
           pendingTarget = null;
         } else {
-          camera.lookAt(controls.target);
+          camera.lookAt(currentLookAt);
         }
       }
     }
