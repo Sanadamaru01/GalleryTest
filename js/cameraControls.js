@@ -3,6 +3,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createCameraMover } from './cameraMover.js';
 
 export function setupCameraControls(camera, renderer, controlsTargetY, floor, scene) {
+  console.log('[cameraControls] called');
+
   const controls = new OrbitControls(camera, renderer.domElement);
   controls.enableDamping = true;
   controls.enableZoom = false;
@@ -18,6 +20,7 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
   const mouse = new THREE.Vector2();
   let isClick = false;
   let clickStartTime = 0;
+
   let lastPanel = null;
   let lastCameraPos = new THREE.Vector3();
   let lastCameraTarget = new THREE.Vector3();
@@ -40,13 +43,14 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
 
+    // パネルクリック
     const panels = scene.userData.clickablePanels || [];
     const hits = raycaster.intersectObjects(panels);
-
     if (hits.length > 0) {
       const panel = hits[0].object;
+
       if (lastPanel === panel) {
-        moveCameraTo(lastCameraTarget); // 後退
+        moveCameraTo(lastCameraTarget, lastCameraPos, true); // 後退
         lastPanel = null;
         return;
       }
@@ -55,20 +59,31 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
       lastCameraPos.copy(camera.position);
       lastCameraTarget.copy(controls.target);
 
-      // ここだけ「移動先座標を計算する関数」に分離
-      const targetPos = calculatePanelCameraPosition(panel);
-      moveCameraTo(targetPos);
+      const panelCenter = new THREE.Vector3();
+      panel.getWorldPosition(panelCenter);
+
+      const panelNormal = new THREE.Vector3(0, 0, -1)
+        .applyQuaternion(panel.quaternion)
+        .normalize();
+
+      const lookAtPos = panelCenter.clone().addScaledVector(panelNormal, -1);
+      const camPos = panelCenter.clone().addScaledVector(panelNormal, -0.5);
+      camPos.y = camera.position.y;
+
+      moveCameraTo(lookAtPos, camPos);
       return;
     }
 
+    // 床クリック
     const floorHits = raycaster.intersectObject(floor);
     if (floorHits.length > 0) {
       const clicked = floorHits[0].point;
       const wallLimit = scene.userData.wallWidth / 2 - 0.5;
       if (Math.abs(clicked.x) > wallLimit || Math.abs(clicked.z) > wallLimit) return;
 
-      const targetPos = calculateFloorCameraPosition(clicked, controls.target.y);
-      moveCameraTo(targetPos);
+      const lookAtPos = new THREE.Vector3(clicked.x, controls.target.y, clicked.z);
+      const camPos = new THREE.Vector3(clicked.x, camera.position.y, clicked.z);
+      moveCameraTo(lookAtPos, camPos);
       lastPanel = null;
     }
   });
@@ -80,20 +95,4 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
   });
 
   return { controls, animateCamera };
-}
-
-// --- 座標計算関数を外部で自由に書き換えられる ---
-function calculatePanelCameraPosition(panel) {
-  const panelCenter = new THREE.Vector3();
-  panel.getWorldPosition(panelCenter);
-
-  const panelNormal = new THREE.Vector3(0, 0, -1)
-    .applyQuaternion(panel.quaternion)
-    .normalize();
-
-  return panelCenter.clone().addScaledVector(panelNormal, -0.5);
-}
-
-function calculateFloorCameraPosition(clickedPoint, targetY) {
-  return new THREE.Vector3(clickedPoint.x, targetY, clickedPoint.z);
 }
