@@ -29,7 +29,7 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
   let lastCameraPos = new THREE.Vector3();
   let lastCameraTarget = new THREE.Vector3();
 
-  // カメラが移動中に向く方向（通常は移動前に見ていた方向）
+  // カメラが移動中に向く方向（移動中の注視点）
   let currentLookAt = new THREE.Vector3();
 
   // 後退時に移動完了後に変更すべき注視点
@@ -48,10 +48,9 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
       currentLookAt.copy(controls.target);
       pendingTarget = lookAtPos.clone();
     } else {
-      // 前進：先に注視点を設定し、その方向を向いて移動
-      controls.target.copy(lookAtPos);
+      // 前進：移動中はcurrentLookAtだけを更新
       currentLookAt.copy(lookAtPos);
-      pendingTarget = null;
+      pendingTarget = lookAtPos.clone(); // 到着後にcontrols.targetを更新
     }
 
     moveStart = performance.now() / 1000;
@@ -89,7 +88,7 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
         return;
       }
 
-      // 新しいパネルをクリック → 前進
+      // 新しいパネルクリック → 前進
       lastPanel = panel;
       lastCameraPos.copy(camera.position);
       lastCameraTarget.copy(controls.target);
@@ -101,17 +100,12 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
         .applyQuaternion(panel.quaternion)
         .normalize();
 
-      // =============================================
       // 距離計算（安全マージン付き）
-      // =============================================
-      const panelHeight = panel.userData.size?.height || 1;  // パネル高さ
-      const fixedLongSide = 3;                               // 基準高さ
-      const baseDistance = -1.0;                             // 基準距離
-      const safetyMargin = -0.9;                             // マージン（例: -0.9）
+      const panelHeight = panel.userData.size?.height || 1; // パネル高さ
+      const fixedLongSide = 3;                              // 基準高さ
+      const baseDistance = -1.0;                             // 元の距離
+      const safetyMargin = -0.9;                             // マージン
       const distance = baseDistance * (panelHeight / fixedLongSide) + safetyMargin;
-
-      console.log('[panel click] distance:', distance, 'panelHeight:', panelHeight);
-      // =============================================
 
       moveCameraTo(panelCenter, panelNormal, distance); // 前進
       return;
@@ -137,29 +131,27 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
     renderer.setSize(window.innerWidth, window.innerHeight);
   });
 
-  return {
-    controls,
-    animateCamera: () => {
-      if (moveStart !== null) {
-        const now = performance.now() / 1000;
-        const elapsed = now - moveStart;
-        const t = Math.min(elapsed / moveDuration, 1);
+  function animateCamera() {
+    if (moveStart !== null) {
+      const now = performance.now() / 1000;
+      const elapsed = now - moveStart;
+      const t = Math.min(elapsed / moveDuration, 1);
 
-        camera.position.lerpVectors(moveFrom, moveTo, t);
-        camera.lookAt(currentLookAt); // 移動中は元の方向を見る
+      camera.position.lerpVectors(moveFrom, moveTo, t);
+      camera.lookAt(currentLookAt); // 移動中は元の方向を見る
 
-        if (t >= 1) {
-          moveStart = null;
-
-          if (pendingTarget) {
-            controls.target.copy(pendingTarget);
-            camera.lookAt(pendingTarget);
-            pendingTarget = null;
-          } else {
-            camera.lookAt(controls.target);
-          }
+      if (t >= 1) {
+        moveStart = null;
+        if (pendingTarget) {
+          controls.target.copy(pendingTarget); // 到着後に回転中心を更新
+          camera.lookAt(pendingTarget);
+          pendingTarget = null;
+        } else {
+          camera.lookAt(controls.target);
         }
       }
-    },
-  };
+    }
+  }
+
+  return { controls, animateCamera };
 }
