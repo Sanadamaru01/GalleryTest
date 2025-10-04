@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createCameraMover } from './cameraMover.js';
 
-// --- 以下、元の cameraControls.js の内容そのまま ---
+// --- 以下、元の cameraControls.js の内容を修正 ---
 export function setupCameraControls(camera, renderer, controlsTargetY, floor, scene) {
   console.log('[cameraControls] called');
 
@@ -23,7 +23,6 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
   let isClick = false;
   let clickStartTime = 0;
 
-  // パネルの前後移動のための記録
   let lastPanel = null;
   let lastCameraPos = new THREE.Vector3();
   let lastCameraTarget = new THREE.Vector3();
@@ -47,9 +46,10 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
     mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
     raycaster.setFromCamera(mouse, camera);
 
-    // パネルクリック処理
+    // --- パネルクリック処理 ---
     const panels = scene.userData.clickablePanels || [];
     const hits = raycaster.intersectObjects(panels);
+
     if (hits.length > 0) {
       const panel = hits[0].object;
 
@@ -68,14 +68,27 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
       const panelCenter = new THREE.Vector3();
       panel.getWorldPosition(panelCenter);
 
-      const panelNormal = new THREE.Vector3(0,0,-1).applyQuaternion(panel.quaternion).normalize();
-      const camPos = panelCenter.clone().addScaledVector(panelNormal, -0.5);
+      const panelNormal = new THREE.Vector3(0, 0, -1).applyQuaternion(panel.quaternion).normalize();
+
+      // =============================================
+      // 距離計算（パネル高さに応じる安全マージン付き）
+      // =============================================
+      const panelHeight = panel.userData.size?.height || 1;  // パネル高さ
+      const fixedLongSide = 3;                               // 基準高さ
+      const baseDistance = -1.0;                              // 元の距離
+      const safetyMargin = -0.9;                              // マージン
+      const distance = baseDistance * (panelHeight / fixedLongSide) + safetyMargin;
+      // =============================================
+
+      const camPos = panelCenter.clone().addScaledVector(panelNormal, distance);
+      camPos.y = camera.position.y; // 高さはカメラ現在値に固定
       const lookAt = panelCenter.clone(); // パネル中心を見る
-      cameraMover.moveCameraTo(lookAt, camPos);
+
+      cameraMover.moveCameraTo(lookAt, camPos); // 移動
       return;
     }
 
-    // 床クリック処理
+    // --- 床クリック処理 ---
     const floorHits = raycaster.intersectObject(floor);
     if (floorHits.length > 0) {
       const clicked = floorHits[0].point;
@@ -83,7 +96,7 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
       if (Math.abs(clicked.x) > wallLimit || Math.abs(clicked.z) > wallLimit) return;
 
       const camPos = new THREE.Vector3(clicked.x, camera.position.y, clicked.z);
-      const lookAt = camera.getWorldDirection(new THREE.Vector3()).add(camera.position); // 現在の向き
+      const lookAt = camera.getWorldDirection(new THREE.Vector3()).add(camera.position);
       cameraMover.moveCameraTo(lookAt, camPos);
 
       lastPanel = null;
