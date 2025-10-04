@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createCameraMover } from './cameraMover.js';
 
-// --- 以下、元の cameraControls.js の内容を修正 ---
+// --- 修正版 cameraControls.js ---
 export function setupCameraControls(camera, renderer, controlsTargetY, floor, scene) {
   console.log('[cameraControls] called');
 
@@ -68,23 +68,13 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
       const panelCenter = new THREE.Vector3();
       panel.getWorldPosition(panelCenter);
 
-      const panelNormal = new THREE.Vector3(0, 0, -1).applyQuaternion(panel.quaternion).normalize();
+      // 移動先を計算（パネル中心方向に向くように）
+      const directionToPanel = new THREE.Vector3().subVectors(panelCenter, camera.position).normalize();
+      const distance = 0.5; // 任意の距離
+      const camPos = panelCenter.clone().sub(directionToPanel.multiplyScalar(distance));
+      camPos.y = camera.position.y; // 高さは現在のカメラ位置を維持
 
-      // =============================================
-      // 距離計算（パネル高さに応じる安全マージン付き）
-      // =============================================
-      const panelHeight = panel.userData.size?.height || 1;  // パネル高さ
-      const fixedLongSide = 3;                               // 基準高さ
-      const baseDistance = -1.0;                              // 元の距離
-      const safetyMargin = -0.9;                              // マージン
-      const distance = baseDistance * (panelHeight / fixedLongSide) + safetyMargin;
-      // =============================================
-
-      const camPos = panelCenter.clone().addScaledVector(panelNormal, distance);
-      camPos.y = camera.position.y; // 高さはカメラ現在値に固定
-      const lookAt = panelCenter.clone(); // パネル中心を見る
-
-      cameraMover.moveCameraTo(lookAt, camPos); // 移動
+      cameraMover.moveCameraTo(panelCenter, camPos); // lookAt はパネル中心
       return;
     }
 
