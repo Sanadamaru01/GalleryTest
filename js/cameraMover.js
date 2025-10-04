@@ -1,5 +1,3 @@
-import * as THREE from 'three';
-
 export function createCameraMover(camera, controls) {
   let moveStart = null;
   let moveFrom = new THREE.Vector3();
@@ -9,21 +7,12 @@ export function createCameraMover(camera, controls) {
   let currentLookAt = new THREE.Vector3();
   let pendingTarget = null;
 
-  function moveCameraTo(lookAtPos, offsetDirection = null, distance = 0.5, isReturn = false) {
-    const direction = offsetDirection
-      ? offsetDirection.clone().normalize()
-      : new THREE.Vector3().subVectors(camera.position, lookAtPos).normalize();
-
-    const newCamPos = lookAtPos.clone().addScaledVector(direction, distance);
+  function moveCameraTo(targetPos) {
+    const newCamPos = targetPos.clone();
     newCamPos.y = camera.position.y;
 
-    if (isReturn) {
-      currentLookAt.copy(controls.target);
-      pendingTarget = lookAtPos.clone();
-    } else {
-      currentLookAt.copy(lookAtPos);
-      pendingTarget = null;
-    }
+    currentLookAt.copy(controls.target);
+    pendingTarget = targetPos.clone();
 
     moveStart = performance.now() / 1000;
     moveFrom.copy(camera.position);
