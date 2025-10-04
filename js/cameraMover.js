@@ -1,3 +1,5 @@
+import * as THREE from 'three';
+
 export function createCameraMover(camera, controls) {
   let moveStart = null;
   let moveFrom = new THREE.Vector3();
@@ -7,16 +9,20 @@ export function createCameraMover(camera, controls) {
   let currentLookAt = new THREE.Vector3();
   let pendingTarget = null;
 
-  function moveCameraTo(targetPos) {
-    const newCamPos = targetPos.clone();
-    newCamPos.y = camera.position.y;
+  function moveCameraTo(lookAtPos, camPos, isReturn = false) {
+    moveFrom.copy(camera.position);
+    moveTo.copy(camPos);
 
-    currentLookAt.copy(controls.target);
-    pendingTarget = targetPos.clone();
+    if (isReturn) {
+      currentLookAt.copy(controls.target);
+      pendingTarget = lookAtPos.clone();
+    } else {
+      controls.target.copy(lookAtPos);
+      currentLookAt.copy(lookAtPos);
+      pendingTarget = null;
+    }
 
     moveStart = performance.now() / 1000;
-    moveFrom.copy(camera.position);
-    moveTo.copy(newCamPos);
   }
 
   function animateCamera() {
@@ -34,6 +40,8 @@ export function createCameraMover(camera, controls) {
           controls.target.copy(pendingTarget);
           camera.lookAt(pendingTarget);
           pendingTarget = null;
+        } else {
+          camera.lookAt(controls.target);
         }
       }
     }
