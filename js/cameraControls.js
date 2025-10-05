@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createCameraMover } from './cameraMover.js';
 
-// --- 修正版 cameraControls.js ---
+// --- 以下、元の cameraControls.js の内容を修正 ---
 export function setupCameraControls(camera, renderer, controlsTargetY, floor, scene) {
   console.log('[cameraControls] called');
 
@@ -68,13 +68,28 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
       const panelCenter = new THREE.Vector3();
       panel.getWorldPosition(panelCenter);
 
-      // 移動先を計算（パネル中心方向に向くように）
-      const directionToPanel = new THREE.Vector3().subVectors(panelCenter, camera.position).normalize();
-      const distance = 0.5; // 任意の距離
-      const camPos = panelCenter.clone().sub(directionToPanel.multiplyScalar(distance));
-      camPos.y = camera.position.y; // 高さは現在のカメラ位置を維持
+      const panelNormal = new THREE.Vector3(0, 0, -1).applyQuaternion(panel.quaternion).normalize();
 
-      cameraMover.moveCameraTo(panelCenter, camPos); // lookAt はパネル中心
+      // =============================================
+      // 距離計算（パネル高さに応じる安全マージン付き）
+      // =============================================
+      const panelHeight = panel.userData.size?.height || 1;  // パネル高さ
+      const fixedLongSide = 3;                               // 基準高さ
+      const baseDistance = -1.0;                             // 元の距離（符号は運用側で決める）
+      const safetyMargin = -0.9;                             // マージン（符号は運用側で決める）
+      const distance = baseDistance * (panelHeight / fixedLongSide) + safetyMargin;
+      // =============================================
+
+      // *** 修正箇所：カメラ位置はパネル中心からパネル法線方向に distance 離れた位置とする ***
+      const camPos = panelCenter.clone().addScaledVector(panelNormal, distance);
+      camPos.y = camera.position.y; // 高さはカメラ現在値に固定
+
+      // 移動先での向きは「移動先からパネル中心への単位ベクトル」を使って、
+      // 回転中心がカメラ近傍になるよう controls.target にセットされる点を渡す
+      const lookDir = panelCenter.clone().sub(camPos).normalize(); // カメラ→パネル の単位ベクトル
+      const lookAt = camPos.clone().add(lookDir); // カメラ近傍にある「向きのポイント」
+
+      cameraMover.moveCameraTo(lookAt, camPos); // 移動（到着後、cameraMover が controls.target を設定します）
       return;
     }
 
