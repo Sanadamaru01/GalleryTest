@@ -3,7 +3,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import { createCameraMover } from './cameraMover.js';
 
-// --- 以下、元の cameraControls.js の内容を修正 ---
+// --- 以下、cameraControls.js ---
 export function setupCameraControls(camera, renderer, controlsTargetY, floor, scene) {
   console.log('[cameraControls] called');
 
@@ -70,38 +70,41 @@ export function setupCameraControls(camera, renderer, controlsTargetY, floor, sc
 
       const panelNormal = new THREE.Vector3(0, 0, -1).applyQuaternion(panel.quaternion).normalize();
 
-      // =============================================
-      // 距離計算（パネル高さに応じる安全マージン付き）
-      // =============================================
-      const panelHeight = panel.userData.size?.height || 1;  // パネル高さ
-      const fixedLongSide = 3;                               // 基準高さ
-      const baseDistance = -1.0;                             // 元の距離（符号は運用側で決める）
-      const safetyMargin = -0.9;                             // マージン（符号は運用側で決める）
+      // --- 距離計算 ---
+      const panelHeight = panel.userData.size?.height || 1;
+      const fixedLongSide = 3;
+      const baseDistance = -1.0;
+      const safetyMargin = -0.9;
       const distance = baseDistance * (panelHeight / fixedLongSide) + safetyMargin;
-      // =============================================
 
-      // *** 修正箇所：カメラ位置はパネル中心からパネル法線方向に distance 離れた位置とする ***
+      // --- カメラ位置算出 ---
       const camPos = panelCenter.clone().addScaledVector(panelNormal, distance);
-      camPos.y = camera.position.y; // 高さはカメラ現在値に固定
+      camPos.y = camera.position.y;
 
-      // 移動先での向きは「移動先からパネル中心への単位ベクトル」を使って、
-      // 回転中心がカメラ近傍になるよう controls.target にセットされる点を渡す
-      const lookDir = panelCenter.clone().sub(camPos).normalize(); // カメラ→パネル の単位ベクトル
-      const lookAt = camPos.clone().add(lookDir); // カメラ近傍にある「向きのポイント」
+      const lookDir = panelCenter.clone().sub(camPos).normalize();
+      const lookAt = camPos.clone().add(lookDir);
 
-      cameraMover.moveCameraTo(lookAt, camPos); // 移動（到着後、cameraMover が controls.target を設定します）
+      cameraMover.moveCameraTo(lookAt, camPos);
       return;
     }
 
-    // --- 床クリック処理 ---
+    // --- 床クリック処理（修正版：向き維持） ---
     const floorHits = raycaster.intersectObject(floor);
     if (floorHits.length > 0) {
       const clicked = floorHits[0].point;
+
       const wallLimit = scene.userData.wallWidth / 2 - 0.5;
       if (Math.abs(clicked.x) > wallLimit || Math.abs(clicked.z) > wallLimit) return;
 
+      // 移動前のカメラ向きベクトルを取得
+      const dir = camera.getWorldDirection(new THREE.Vector3()).normalize();
+
+      // 新しいカメラ位置
       const camPos = new THREE.Vector3(clicked.x, camera.position.y, clicked.z);
-      const lookAt = camera.getWorldDirection(new THREE.Vector3()).add(camera.position);
+
+      // 向きを維持したlookAtを算出（カメラ移動後でも同じ方向を向く）
+      const lookAt = camPos.clone().add(dir.clone().multiplyScalar(0.1));
+
       cameraMover.moveCameraTo(lookAt, camPos);
 
       lastPanel = null;
