@@ -47,37 +47,28 @@ export function applyWallLayouts(scene, layoutPlan, imageMetaList, wallWidth, wa
   scene.userData.clickablePanels = scene.userData.clickablePanels || [];
 
   const wallData = {
-    front: { axis: 'x', z: 0, rotY: Math.PI },         // 正面
-    right: { axis: 'z', x: 0, rotY: Math.PI / 2 },    // 右
-    left:  { axis: 'z', x: 0, rotY: -Math.PI / 2 }    // 左
+    front: { axis: 'x', origin: 0, z: wallWidth / 2 - 0.1, rotY: Math.PI },
+    right: { axis: 'z', origin: wallWidth / 2, x: -wallWidth / 2 + 0.1, rotY: Math.PI / 2 },
+    left:  { axis: 'z', origin: wallWidth / 2, x:  wallWidth / 2 - 0.1, rotY: -Math.PI / 2 }
   };
 
   const meshes = [];
 
   layoutPlan.forEach(plan => {
     const wall = wallData[plan.wall];
-    const totalWidth = plan.images.reduce((sum, img) => sum + img.fw, 0) + (plan.images.length - 1) * 0.5; // minSpacing = 0.5
-    let startOffset = -totalWidth / 2;
-
-    plan.images.forEach((img, i) => {
+    plan.images.forEach(img => {
       const meta = imageMetaList[img.index];
       const texture = meta.texture;
 
-      // 横方向の位置を決定（壁の中心を基準）
-      const imgOffset = startOffset + img.fw / 2;
-      startOffset += img.fw + 0.5; // 次の画像のオフセット
-
-      let fx = 0, fz = 0;
-      if (wall.axis === 'x') fx = imgOffset; // 正面
-      if (wall.axis === 'z') fz = imgOffset; // 左・右
-
+      const fx = wall.axis === 'x' ? img.offset : wall.x;
+      const fz = wall.axis === 'z' ? img.offset : wall.z;
       const fy = GALLERY_HEIGHT;
 
       const frame = new THREE.Mesh(
         new THREE.BoxGeometry(img.fw, img.fh, 0.05),
         new THREE.MeshStandardMaterial({ color: 0x333333 })
       );
-      frame.position.set(fx, fy, fz);
+      frame.position.set(fx || 0, fy, fz || 0);
       frame.rotation.y = wall.rotY;
       scene.add(frame);
 
@@ -111,7 +102,7 @@ export function applyWallLayouts(scene, layoutPlan, imageMetaList, wallWidth, wa
   return meshes;
 }
 
-// 壁幅・画像サイズから貼り付けプランを作成
+// 壁幅・画像サイズから貼り付けプランを作成（中央揃え修正版）
 export function planWallLayouts(imageSizes, wallWidth, minMargin, minSpacing) {
   const wallNames = ['front', 'right', 'left'];
   const plans = [];
@@ -132,12 +123,28 @@ export function planWallLayouts(imageSizes, wallWidth, minMargin, minSpacing) {
 
     if (count === 0) continue;
 
+    const totalSpacing = minSpacing * (count - 1);
+    const totalWidth = totalImageWidth;
+    const extraSpace = availableWidth - totalWidth;
+
     const wallPlan = { wall: wallName, images: [] };
 
+    // 各写真の中心位置を中央揃えで計算
+    let centerOffset = -totalWidth / 2; // 壁中央を0にする
     for (let i = 0; i < count; i++) {
-      const idx = imageIndex + i; // index は順序通り保持
+      const idx = imageIndex + i;
       const { fw, fh } = imageSizes[idx];
-      wallPlan.images.push({ index: idx, fw, fh });
+
+      const offset = centerOffset + fw / 2;
+      centerOffset += fw + minSpacing;
+
+      // 壁の方向によって符号を反転させる必要がある場合はここで調整
+      wallPlan.images.push({
+        index: idx,
+        fw,
+        fh,
+        offset: offset
+      });
     }
 
     plans.push(wallPlan);
