@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createCaptionPanel } from './captionHelper.js'; // ← 追加
+import { createCaptionPanel } from './captionHelper.js'; // キャプション作成関数
 
 // メイン関数：画像読み込みと計画適用
 export async function loadImages(scene, imageFiles, wallWidth, wallHeight, fixedLongSide = 3, imageBasePath) {
@@ -7,7 +7,7 @@ export async function loadImages(scene, imageFiles, wallWidth, wallHeight, fixed
   const MIN_SPACING = 0.5;
   const loader = new THREE.TextureLoader();
 
-  // 画像情報のプリロード（サイズ取得＋テクスチャ化を並列処理）
+  // 画像情報のプリロード（サイズ取得＋テクスチャ化）
   const imageMetaList = await Promise.all(imageFiles.map(srcObj => {
     const src = typeof srcObj === 'string' ? srcObj : srcObj.file;
     return new Promise((resolve) => {
@@ -37,61 +37,97 @@ export async function loadImages(scene, imageFiles, wallWidth, wallHeight, fixed
     });
   }));
 
-  const imageSizes = imageMetaList.map(item => ({ fw: item.fw, fh: item.fh }));
-  const layoutPlan = planWallLayouts(imageSizes, wallWidth, MIN_MARGIN, MIN_SPACING);
-  return applyWallLayouts(scene, layoutPlan, imageMetaList, wallWidth, wallHeight); // ← メッシュ配列を返す
+  // 壁ごとのレイアウト計画
+  const layoutPlan = planWallLayouts(imageMetaList, wallWidth, MIN_MARGIN, MIN_SPACING);
+  return applyWallLayouts(scene, layoutPlan, wallHeight); // 画像とキャプションを同時に配置
 }
 
-// Three.js上に画像を貼る
-export function applyWallLayouts(scene, layoutPlan, imageMetaList, wallWidth, wallHeight) {
+// 壁幅・画像サイズから貼り付けプランを作成（中央基準）
+function planWallLayouts(imageMetaList, wallWidth, minMargin, minSpacing) {
+  const wallNames = ['front', 'right', 'left'];
+  const plans = [];
+  let imageIndex = 0;
+
+  for (const wallName of wallNames) {
+    const availableWidth = wallWidth - 2 * minMargin;
+    let wallImages = [];
+    let totalWidth = 0;
+
+    // 壁に収まる枚数を計算
+    while (imageIndex < imageMetaList.length) {
+      const { fw } = imageMetaList[imageIndex];
+      const spacing = wallImages.length > 0 ? minSpacing : 0;
+      if (totalWidth + fw + spacing > availableWidth) break;
+      totalWidth += fw + spacing;
+      wallImages.push({ index: imageIndex, fw });
+      imageIndex++;
+    }
+
+    if (wallImages.length === 0) continue;
+
+    // 壁中央基準でのオフセット計算
+    let offset = -totalWidth / 2;
+    wallImages.forEach(img => {
+      img.offset = offset + img.fw / 2;
+      offset += img.fw + minSpacing;
+    });
+
+    plans.push({ wall: wallName, images: wallImages });
+  }
+
+  return plans;
+}
+
+// Three.js上に画像を貼る（キャプションも同時に配置）
+function applyWallLayouts(scene, layoutPlan, wallHeight) {
   const GALLERY_HEIGHT = wallHeight / 2;
   scene.userData.clickablePanels = scene.userData.clickablePanels || [];
+  const meshes = [];
 
   const wallData = {
-    front: { axis: 'x', origin: -wallWidth / 2, z: wallWidth / 2 - 0.1, rotY: Math.PI },
-    right: { axis: 'z', origin: wallWidth / 2, x: -wallWidth / 2 + 0.1, rotY: Math.PI / 2 },
-    left:  { axis: 'z', origin: wallWidth / 2, x:  wallWidth / 2 - 0.1, rotY: -Math.PI / 2 }
+    front: { axis: 'x', origin: 0, z: wallHeight / 2 - 0.1, rotY: Math.PI },
+    right: { axis: 'z', origin: 0, x: -wallHeight / 2 + 0.1, rotY: Math.PI / 2 },
+    left:  { axis: 'z', origin: 0, x: wallHeight / 2 - 0.1, rotY: -Math.PI / 2 }
   };
-
-  const meshes = [];
 
   layoutPlan.forEach(plan => {
     const wall = wallData[plan.wall];
-    plan.images.forEach(img => {
-      const meta = imageMetaList[img.index];
-      const texture = meta.texture;
+    plan.images.forEach(imgInfo => {
+      const meta = scene.userData.imageMetaList[imgInfo.index];
+      const { fw, fh, texture } = meta;
 
-      const fx = wall.axis === 'x' ? wall.origin + img.offset : wall.x;
-      const fz = wall.axis === 'z' ? wall.origin - img.offset : wall.z;
+      const fx = wall.axis === 'x' ? wall.origin + imgInfo.offset : wall.x;
+      const fz = wall.axis === 'z' ? wall.origin + imgInfo.offset : wall.z;
       const fy = GALLERY_HEIGHT;
 
+      // フレーム
       const frame = new THREE.Mesh(
-        new THREE.BoxGeometry(img.fw, img.fh, 0.05),
+        new THREE.BoxGeometry(fw, fh, 0.05),
         new THREE.MeshStandardMaterial({ color: 0x333333 })
       );
       frame.position.set(fx || 0, fy, fz || 0);
       frame.rotation.y = wall.rotY;
       scene.add(frame);
 
+      // 画像
       const panel = new THREE.Mesh(
-        new THREE.PlaneGeometry(img.fw * 0.95, img.fh * 0.95),
+        new THREE.PlaneGeometry(fw * 0.95, fh * 0.95),
         new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide })
       );
       panel.position.copy(frame.position);
       panel.rotation.y = wall.rotY;
-
       const offsetVec = new THREE.Vector3(0, 0, 0.03);
       offsetVec.applyAxisAngle(new THREE.Vector3(0, 1, 0), wall.rotY);
       panel.position.add(offsetVec);
       scene.add(panel);
 
-      // クリック対象に追加
-      panel.userData.size = { width: img.fw, height: img.fh };
+      // クリック対象
+      panel.userData.size = { width: fw, height: fh };
       scene.userData.clickablePanels.push(panel);
 
-      // 🔹 キャプションパネル生成
+      // キャプション
       if (meta.title && meta.caption) {
-        const aspect = img.fw / img.fh;
+        const aspect = fw / fh;
         const captionPanel = createCaptionPanel(panel, meta.title, meta.caption, aspect);
         panel.userData.captionPanel = captionPanel;
       }
@@ -100,57 +136,5 @@ export function applyWallLayouts(scene, layoutPlan, imageMetaList, wallWidth, wa
     });
   });
 
-  return meshes; // ← 画像メッシュ配列を返す
-}
-
-// 壁幅・画像サイズから貼り付けプランを作成
-export function planWallLayouts(imageSizes, wallWidth, minMargin, minSpacing) {
-  const wallNames = ['front', 'right', 'left'];
-  const plans = [];
-  let imageIndex = 0;
-
-  for (const wallName of wallNames) {
-    const availableWidth = wallWidth - 2 * minMargin;
-    let count = 0;
-    let totalImageWidth = 0;
-
-    while (imageIndex + count < imageSizes.length) {
-      const w = imageSizes[imageIndex + count].fw;
-      const spacing = count > 0 ? minSpacing : 0;
-      if (totalImageWidth + spacing + w > availableWidth) break;
-      totalImageWidth += spacing + w;
-      count++;
-    }
-
-    if (count === 0) continue;
-
-    const totalSpacing = minSpacing * (count - 1);
-    const totalWidth = totalImageWidth;
-    const extraSpace = availableWidth - totalWidth;
-    let offset = minMargin + extraSpace / 2;
-
-    const wallPlan = {
-      wall: wallName,
-      images: []
-    };
-
-    for (let i = 0; i < count; i++) {
-      const idx = imageIndex + (wallName === 'front' ? count - 1 - i : i);
-      const { fw, fh } = imageSizes[idx];
-
-      wallPlan.images.push({
-        index: idx,
-        fw,
-        fh,
-        offset: offset + fw / 2
-      });
-
-      offset += fw + minSpacing;
-    }
-
-    plans.push(wallPlan);
-    imageIndex += count;
-  }
-
-  return plans;
+  return meshes;
 }
